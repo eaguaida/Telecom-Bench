@@ -50,19 +50,19 @@ def telelogs(epochs_count: int | None = None) -> Task:
         )
     )
 
-    epochs = None
-    task_metrics = None
-    
     if epochs_count:
-        epochs = epochs_count
-        task_metrics = [accuracy(), stderr(), maj_at_k()]
-
+        return Task(
+            dataset=dataset,
+            solver=telelogs_agent(),
+            scorer=pattern(r"\\boxed\{\{?(.+?)\}?\}"),
+            epochs=epochs_count,
+            metrics=[accuracy(), stderr(), maj_at_k()],
+        )
+    
     return Task(
         dataset=dataset,
         solver=telelogs_agent(),
         scorer=pattern(r"\\boxed\{\{?(.+?)\}?\}"),
-        epochs=epochs,
-        metrics=task_metrics,
     )
 
 
