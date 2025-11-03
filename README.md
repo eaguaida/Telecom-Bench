@@ -1,6 +1,6 @@
 # Telecom Bench
 
-Collection of evals for [Inspect AI](https://inspect.ai-safety-institute.org.uk/) focused on telecommunications tasks.
+Collection of evals on telecommunications tasks.
 
 Read more: [GSMA Benchmarks Blog Post](https://huggingface.co/blog/otellm/gsma-benchmarks-02)
 
@@ -59,8 +59,11 @@ List of all available models: [https://inspect.aisi.org.uk/models.html](https://
 Run evals from the command line:
 
 ```bash
+# TeleQnA
 inspect eval src/telecom_bench/benchmarks/teleqna/teleqna.py
+#TeleMath
 inspect eval src/telecom_bench/benchmarks/telemath/telemath.py
+#TeleLogs
 inspect eval src/telecom_bench/benchmarks/telelogs/telelogs.py
 ```
 
@@ -74,7 +77,7 @@ inspect eval src/telecom_bench/benchmarks/telemath/telemath.py --model openai/gp
 inspect eval src/telecom_bench/benchmarks/telemath/telemath.py --limit 10
 ```
 
-**Alternative**: Use the [Inspect VS Code Extension](https://marketplace.visualstudio.com/items?itemName=inspect-ai.inspect) or run the Web UI with `python ui/app.py`.
+**Alternative**: Use the [Inspect VS Code Extension](https://marketplace.visualstudio.com/items?itemName=inspect-ai.inspect) or run the Web UI with `python ui/app.py`
 
 ## Evals
 
