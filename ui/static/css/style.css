@@ -1,0 +1,61 @@
+/* Custom Styles for Telecom Bench */
+
+/* Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+
+.font-pixel {
+    font-family: 'Press Start 2P', cursive;
+}
+
+.font-terminal {
+    font-family: 'VT323', monospace;
+}
+
+/* CRT Scanline Effect */
+.scanlines {
+    background: linear-gradient(to bottom,
+            rgba(255, 255, 255, 0),
+            rgba(255, 255, 255, 0) 50%,
+            rgba(0, 0, 0, 0.2) 50%,
+            rgba(0, 0, 0, 0.2));
+    background-size: 100% 4px;
+    pointer-events: none;
+}
+
+.crt-flicker {
+    animation: flicker 0.15s infinite;
+}
+
+@keyframes flicker {
+    0% {
+        opacity: 0.97;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1a1a1a;
+    border-left: 2px solid #333;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #4ade80;
+    border: 2px solid #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #22c55e;
+}
+
+/* Utility to hide elements */
+.hidden {
+    display: none !important;
+}
