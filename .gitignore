@@ -25,3 +25,4 @@ ENV/
 *.egg-info/
 dist/
 build/
+src/logs/.DS_Store

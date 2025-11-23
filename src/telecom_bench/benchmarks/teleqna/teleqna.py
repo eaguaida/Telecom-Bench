@@ -38,7 +38,7 @@ def teleqna(subject: str = "full") -> Task:
     
     return Task(
         dataset=dataset,
-        solver=multiple_choice(cot=True),
+        solver=multiple_choice(cot=False),
         scorer=choice()
     )
 
