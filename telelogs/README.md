@@ -13,11 +13,25 @@ tags:
 pretty_name: TeleLogs (Processed MCQ Format)
 size_categories:
 - n<1K
+dataset_info:
+  features:
+  - name: question
+    dtype: string
+  - name: answer
+    dtype: int64
+  - name: choices
+    sequence: string
+  splits:
+  - name: test
+    num_bytes: 5242880
+    num_examples: 864
+  download_size: 5242880
+  dataset_size: 5242880
 configs:
 - config_name: default
   data_files:
   - split: test
-    path: telelogs_test.parquet
+    path: telelogs_test.json
 ---
 
 # TeleLogs Dataset (Processed MCQ Format)
