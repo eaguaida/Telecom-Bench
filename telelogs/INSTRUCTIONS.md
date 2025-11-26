@@ -49,13 +49,16 @@ Run this in an environment without proxy restrictions:
 
 The script performs these transformations on the test split:
 
-1. **Answer column**: Strips 'C' prefix
-   - Before: `C4`
-   - After: `4`
+1. **Answer column**: Strips 'C' prefix and converts to 0-based index
+   - Before: `C1` -> After: `0`
+   - Before: `C4` -> After: `3`
+   - Before: `C8` -> After: `7`
+   - This matches the array indexing of the choices
 
 2. **Choices column** (new): Extracts 8 choices from question text
    - Parses choices formatted as `C1: content`, `C2: content`, etc.
    - Creates array: `["choice1", "choice2", ..., "choice8"]`
+   - Choices are indexed 0-7 in the array
 
 3. **Question column**: Removes template and choices
    - Removes the instruction template

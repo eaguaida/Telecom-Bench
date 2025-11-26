@@ -62,11 +62,12 @@ def remove_template_from_question(question_text):
 
 def transform_answer(answer):
     """
-    Remove 'C' prefix from answer, keeping only the number.
-    Example: C4 -> 4, C1 -> 1
+    Remove 'C' prefix from answer and convert to 0-based index.
+    Example: C1 -> 0, C4 -> 3, C8 -> 7
+    Since choices array is 0-indexed, we subtract 1.
     """
     if isinstance(answer, str) and answer.startswith('C'):
-        return int(answer[1:])
+        return int(answer[1:]) - 1
     return answer
 
 def process_dataset():
