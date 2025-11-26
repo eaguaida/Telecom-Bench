@@ -38,12 +38,14 @@ def telelogs_agent(attempts: int = 1) -> Agent:
 @task
 def telelogs(epochs_count: int | None = None) -> Task:
     """TeleLogs benchmark with optional multi-epoch metrics.
-    
+
     Args:
         epochs_count: Number of epochs to run for computing pass@1 and maj@N metrics
+
+    Loads from the processed dataset at eaguaida/telelogs
     """
     dataset = load_huggingface_dataset(
-        "netop/TeleLogs",
+        "eaguaida/telelogs",
         sample_fields=FieldSpec(
             input="question",
             target="answer",

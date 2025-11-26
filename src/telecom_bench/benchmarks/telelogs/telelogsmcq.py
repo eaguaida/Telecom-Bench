@@ -32,9 +32,11 @@ def telelogsmcq() -> Task:
     - The question contains only the data (tables and parameters)
     - 8 choices are provided as options A-H
     - The model selects the most likely root cause
+
+    Loads from the processed dataset at eaguaida/telelogs
     """
     dataset = load_huggingface_dataset(
-        "netop/TeleLogs",
+        "eaguaida/telelogs",
         sample_fields=telelogs_record_to_sample
     )
 
