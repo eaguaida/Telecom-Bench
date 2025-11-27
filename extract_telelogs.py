@@ -17,20 +17,24 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 from telecom_bench.prompt_transformer import transform_prompt
 
 # Get HuggingFace token from environment variable
+# Only check when running as main script, not when importing functions
 HF_TOKEN = os.environ.get("HF_TOKEN")
-if not HF_TOKEN:
-    raise ValueError(
-        "HF_TOKEN environment variable not set. "
-        "Please set it with your HuggingFace token:\n"
-        "export HF_TOKEN=your_token_here"
-    )
 
-# Login to HuggingFace
-try:
-    login(token=HF_TOKEN, add_to_git_credential=False)
-    print("Successfully logged in to HuggingFace")
-except Exception as e:
-    print(f"Warning: Could not login to HuggingFace: {e}")
+def ensure_hf_login():
+    """Ensure HuggingFace authentication is set up."""
+    if not HF_TOKEN:
+        raise ValueError(
+            "HF_TOKEN environment variable not set. "
+            "Please set it with your HuggingFace token:\n"
+            "export HF_TOKEN=your_token_here"
+        )
+
+    # Login to HuggingFace
+    try:
+        login(token=HF_TOKEN, add_to_git_credential=False)
+        print("Successfully logged in to HuggingFace")
+    except Exception as e:
+        print(f"Warning: Could not login to HuggingFace: {e}")
 
 def extract_choices_from_question(question_text):
     """
@@ -63,18 +67,33 @@ def extract_actual_question(question_text):
     This typically starts with "Given:" and contains the data tables.
     Removes the template instruction and choices completely.
     """
-    # Find where C8 ends and the actual question begins (marked by \n\n)
-    # Look for C8: ... \n\n<actual question>
-    match = re.search(r'C8:.*?\n\n(.+)', question_text, re.DOTALL)
+    # Try multiple patterns to find where the actual question starts
 
+    # Pattern 1: C8 followed by \n\n (double newline)
+    match = re.search(r'C8:.*?\n\n(.+)', question_text, re.DOTALL)
     if match:
-        # Extract everything after the \n\n
         actual_question = match.group(1).strip()
-        return actual_question
-    else:
-        # Fallback: if pattern not found, return empty or original
-        print("Warning: Could not find actual question data after C8")
-        return question_text.strip()
+        if len(actual_question) > 100:  # Sanity check: question should be substantial
+            return actual_question
+
+    # Pattern 2: Look for "Given:" which typically starts the actual question
+    match = re.search(r'(Given:.+)', question_text, re.DOTALL | re.IGNORECASE)
+    if match:
+        actual_question = match.group(1).strip()
+        if len(actual_question) > 100:
+            return actual_question
+
+    # Pattern 3: Look for "User plane" which starts the drive test data
+    match = re.search(r'((?:User plane|drive test).+)', question_text, re.DOTALL | re.IGNORECASE)
+    if match:
+        actual_question = match.group(1).strip()
+        if len(actual_question) > 100:
+            return actual_question
+
+    # If no pattern matches, log a detailed warning
+    print(f"Warning: Could not extract question data. Text length: {len(question_text)}")
+    print(f"First 200 chars: {question_text[:200]}")
+    return question_text.strip()
 
 def transform_answer(answer):
     """
@@ -93,6 +112,9 @@ def process_dataset(apply_markdown_kv: bool = False):
     Args:
         apply_markdown_kv: If True, transform questions to Markdown-KV format
     """
+    # Ensure authentication is set up
+    ensure_hf_login()
+
     print("Loading dataset from HuggingFace...")
     try:
         # Load the dataset with authentication
@@ -128,11 +150,47 @@ def process_dataset(apply_markdown_kv: bool = False):
         print("3. Extracting actual question data...")
         df['question'] = df['question'].apply(extract_actual_question)
 
+        # Verify extraction quality
+        print("   Verifying extraction quality...")
+        sample_question = df['question'].iloc[0]
+        has_given = 'Given:' in sample_question or 'given:' in sample_question.lower()
+        has_drive_test = 'drive test' in sample_question.lower() or 'user plane' in sample_question.lower()
+        has_eng_params = 'engineering' in sample_question.lower() or 'eng parameters' in sample_question.lower()
+
+        print(f"   - Contains 'Given:': {has_given}")
+        print(f"   - Contains drive test data: {has_drive_test}")
+        print(f"   - Contains engineering params: {has_eng_params}")
+
+        if not (has_given and has_drive_test and has_eng_params):
+            print("   ⚠ WARNING: Extraction may be incomplete!")
+            print(f"   Sample length: {len(sample_question)} chars")
+            print(f"   First 300 chars:\n{sample_question[:300]}")
+
         # 4. Optionally transform to Markdown-KV format
         if apply_markdown_kv:
             print("4. Transforming questions to Markdown-KV format...")
             df['question'] = df['question'].apply(transform_prompt)
             print("   Markdown-KV transformation applied!")
+
+            # Verify transformation quality
+            print("   Verifying transformation...")
+            sample_transformed = df['question'].iloc[0]
+            checks = {
+                'has_domain_rules': '# Domain Rules' in sample_transformed,
+                'has_drive_test': '# Drive Test Data' in sample_transformed,
+                'has_engineering': '# Engineering Parameters' in sample_transformed,
+                'has_relationships': '# Data Relationships' in sample_transformed,
+                'has_code_blocks': '```' in sample_transformed
+            }
+
+            for check_name, passed in checks.items():
+                status = "✓" if passed else "✗"
+                print(f"   {status} {check_name}")
+
+            if not all(checks.values()):
+                print("   ⚠ WARNING: Transformation may have failed!")
+                print(f"   Sample length: {len(sample_transformed)} chars")
+                print(f"   First 500 chars:\n{sample_transformed[:500]}")
 
         # Show a sample after transformation
         print("\n=== Sample after transformation ===")
