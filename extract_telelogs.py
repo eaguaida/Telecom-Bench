@@ -3,10 +3,18 @@ Script to extract and transform the TeleLogs dataset from HuggingFace
 """
 import os
 import re
+import sys
+from pathlib import Path
 from datasets import load_dataset
 from huggingface_hub import login
 import json
 import pandas as pd
+import argparse
+
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).parent / "src"))
+
+from telecom_bench.prompt_transformer import transform_prompt
 
 # Get HuggingFace token from environment variable
 HF_TOKEN = os.environ.get("HF_TOKEN")
@@ -78,9 +86,12 @@ def transform_answer(answer):
         return int(answer[1:]) - 1
     return answer
 
-def process_dataset():
+def process_dataset(apply_markdown_kv: bool = False):
     """
     Load and process the TeleLogs dataset
+
+    Args:
+        apply_markdown_kv: If True, transform questions to Markdown-KV format
     """
     print("Loading dataset from HuggingFace...")
     try:
@@ -117,6 +128,12 @@ def process_dataset():
         print("3. Extracting actual question data...")
         df['question'] = df['question'].apply(extract_actual_question)
 
+        # 4. Optionally transform to Markdown-KV format
+        if apply_markdown_kv:
+            print("4. Transforming questions to Markdown-KV format...")
+            df['question'] = df['question'].apply(transform_prompt)
+            print("   Markdown-KV transformation applied!")
+
         # Show a sample after transformation
         print("\n=== Sample after transformation ===")
         print(f"Question: {df['question'].iloc[0]}")
@@ -127,23 +144,28 @@ def process_dataset():
         # Save to different formats
         print("\n=== Saving dataset ===")
 
+        # Add suffix for Markdown-KV format
+        suffix = "_mkv" if apply_markdown_kv else ""
+
         # Save as CSV
-        csv_path = "telelogs/telelogs_test.csv"
+        csv_path = f"telelogs/telelogs_test{suffix}.csv"
         df.to_csv(csv_path, index=False)
         print(f"Saved to {csv_path}")
 
         # Save as JSON
-        json_path = "telelogs/telelogs_test.json"
+        json_path = f"telelogs/telelogs_test{suffix}.json"
         df.to_json(json_path, orient='records', indent=2)
         print(f"Saved to {json_path}")
 
         # Save as parquet (more efficient for large datasets)
-        parquet_path = "telelogs/telelogs_test.parquet"
+        parquet_path = f"telelogs/telelogs_test{suffix}.parquet"
         df.to_parquet(parquet_path, index=False)
         print(f"Saved to {parquet_path}")
 
         print("\n=== Processing complete! ===")
         print(f"Total samples processed: {len(df)}")
+        if apply_markdown_kv:
+            print(f"Format: Markdown-KV (improved LLM comprehension)")
         print("\nNote: README.md with dataset card already exists in telelogs/")
         print("Upload to HuggingFace with: python upload_telelogs.py")
 
@@ -154,4 +176,27 @@ def process_dataset():
         raise
 
 if __name__ == "__main__":
-    df = process_dataset()
+    parser = argparse.ArgumentParser(
+        description="Extract and process TeleLogs dataset from HuggingFace",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Extract in standard format
+  python extract_telelogs.py
+
+  # Extract with Markdown-KV transformation (improved LLM comprehension)
+  python extract_telelogs.py --markdown-kv
+
+The Markdown-KV format achieves ~60% accuracy vs ~41-44% for pipe-delimited
+format in LLM table understanding benchmarks.
+        """
+    )
+
+    parser.add_argument(
+        '--markdown-kv',
+        action='store_true',
+        help='Transform questions to Markdown-KV format for improved LLM comprehension'
+    )
+
+    args = parser.parse_args()
+    df = process_dataset(apply_markdown_kv=args.markdown_kv)
