@@ -36,75 +36,6 @@ def ensure_hf_login():
     except Exception as e:
         print(f"Warning: Could not login to HuggingFace: {e}")
 
-def extract_choices_from_question(question_text):
-    """
-    Extract the 8 choices (C1-C8) from the question text.
-    For C8, stops at \n\n which separates the choice from the actual question data.
-    Returns a list of 8 choice contents.
-    """
-    choices = []
-
-    # Pattern to match C1: through C8:
-    # For C1-C7: content until next C digit or C8
-    # For C8: content until \n\n (which marks start of actual question)
-    pattern = r'C(\d):\s*(.*?)(?=\nC\d:|\n\n|$)'
-
-    matches = re.findall(pattern, question_text, re.DOTALL)
-
-    # Sort by choice number and extract just the content
-    sorted_matches = sorted(matches, key=lambda x: int(x[0]))
-    choices = [match[1].strip() for match in sorted_matches]
-
-    # Ensure we have exactly 8 choices
-    if len(choices) != 8:
-        print(f"Warning: Found {len(choices)} choices instead of 8")
-
-    return choices
-
-def extract_actual_question(question_text):
-    """
-    Extract the actual question data (everything after \n\n following C8).
-    This typically starts with "Given:" and contains the data tables.
-    Removes the template instruction and choices completely.
-    """
-    # Try multiple patterns to find where the actual question starts
-
-    # Pattern 1: C8 followed by \n\n (double newline)
-    match = re.search(r'C8:.*?\n\n(.+)', question_text, re.DOTALL)
-    if match:
-        actual_question = match.group(1).strip()
-        if len(actual_question) > 100:  # Sanity check: question should be substantial
-            return actual_question
-
-    # Pattern 2: Look for "Given:" which typically starts the actual question
-    match = re.search(r'(Given:.+)', question_text, re.DOTALL | re.IGNORECASE)
-    if match:
-        actual_question = match.group(1).strip()
-        if len(actual_question) > 100:
-            return actual_question
-
-    # Pattern 3: Look for "User plane" which starts the drive test data
-    match = re.search(r'((?:User plane|drive test).+)', question_text, re.DOTALL | re.IGNORECASE)
-    if match:
-        actual_question = match.group(1).strip()
-        if len(actual_question) > 100:
-            return actual_question
-
-    # If no pattern matches, log a detailed warning
-    print(f"Warning: Could not extract question data. Text length: {len(question_text)}")
-    print(f"First 200 chars: {question_text[:200]}")
-    return question_text.strip()
-
-def transform_answer(answer):
-    """
-    Remove 'C' prefix from answer and convert to 0-based index.
-    Example: C1 -> 0, C4 -> 3, C8 -> 7
-    Since choices array is 0-indexed, we subtract 1.
-    """
-    if isinstance(answer, str) and answer.startswith('C'):
-        return int(answer[1:]) - 1
-    return answer
-
 def process_dataset(apply_markdown_kv: bool = False):
     """
     Load and process the TeleLogs dataset
@@ -130,45 +61,19 @@ def process_dataset(apply_markdown_kv: bool = False):
         df = test_data.to_pandas()
         print(f"\nOriginal columns: {df.columns.tolist()}")
 
-        # Show a sample before transformation
-        print("\n=== Sample before transformation ===")
+        # Show a sample of the original data
+        print("\n=== Original data sample ===")
         print(f"Question (first 500 chars): {df['question'].iloc[0][:500]}...")
-        print(f"Answer: {df['answer'].iloc[0]}")
+        if 'answer' in df.columns:
+            print(f"Answer: {df['answer'].iloc[0]}")
+        if 'label' in df.columns:
+            print(f"Label: {df['label'].iloc[0]}")
+        if 'choices' in df.columns:
+            print(f"Choices: {df['choices'].iloc[0]}")
 
-        # Apply transformations
-        print("\n=== Applying transformations ===")
-
-        # 1. Transform answer column
-        print("1. Transforming answer column...")
-        df['answer'] = df['answer'].apply(transform_answer)
-
-        # 2. Extract choices into new column
-        print("2. Extracting choices...")
-        df['choices'] = df['question'].apply(extract_choices_from_question)
-
-        # 3. Extract actual question data (after C8 and \n\n)
-        print("3. Extracting actual question data...")
-        df['question'] = df['question'].apply(extract_actual_question)
-
-        # Verify extraction quality
-        print("   Verifying extraction quality...")
-        sample_question = df['question'].iloc[0]
-        has_given = 'Given:' in sample_question or 'given:' in sample_question.lower()
-        has_drive_test = 'drive test' in sample_question.lower() or 'user plane' in sample_question.lower()
-        has_eng_params = 'engineering' in sample_question.lower() or 'eng parameters' in sample_question.lower()
-
-        print(f"   - Contains 'Given:': {has_given}")
-        print(f"   - Contains drive test data: {has_drive_test}")
-        print(f"   - Contains engineering params: {has_eng_params}")
-
-        if not (has_given and has_drive_test and has_eng_params):
-            print("   ⚠ WARNING: Extraction may be incomplete!")
-            print(f"   Sample length: {len(sample_question)} chars")
-            print(f"   First 300 chars:\n{sample_question[:300]}")
-
-        # 4. Optionally transform to Markdown-KV format
+        # Optionally transform to Markdown-KV format (only transform question column)
         if apply_markdown_kv:
-            print("4. Transforming questions to Markdown-KV format...")
+            print("\n=== Transforming questions to Markdown-KV format ===")
             df['question'] = df['question'].apply(transform_prompt)
             print("   Markdown-KV transformation applied!")
 
@@ -192,17 +97,20 @@ def process_dataset(apply_markdown_kv: bool = False):
                 print(f"   Sample length: {len(sample_transformed)} chars")
                 print(f"   First 500 chars:\n{sample_transformed[:500]}")
 
-        # Show a sample after transformation
-        print("\n=== Sample after transformation ===")
-        print(f"Question: {df['question'].iloc[0]}")
-        print(f"Answer: {df['answer'].iloc[0]}")
-        print(f"Choices (first 2): {df['choices'].iloc[0][:2]}")
-        print(f"Number of choices: {len(df['choices'].iloc[0])}")
+        # Show a sample after transformation (if applied)
+        print("\n=== Final data sample ===")
+        print(f"Question (first 500 chars): {df['question'].iloc[0][:500]}...")
+        for col in ['answer', 'label', 'choices']:
+            if col in df.columns:
+                print(f"{col.capitalize()}: {df[col].iloc[0]}")
 
         # Save to different formats
         print("\n=== Saving dataset ===")
 
-        # Add suffix for non-markdown format (plain pipe-delimited)
+        # Create output directory if it doesn't exist
+        os.makedirs("telelogs_markdown", exist_ok=True)
+
+        # Add suffix for non-markdown format
         suffix = "" if apply_markdown_kv else "_plain"
 
         # Save as CSV
@@ -222,6 +130,7 @@ def process_dataset(apply_markdown_kv: bool = False):
 
         print("\n=== Processing complete! ===")
         print(f"Total samples processed: {len(df)}")
+        print(f"Columns: {df.columns.tolist()}")
         if apply_markdown_kv:
             print(f"Format: Markdown-KV (improved LLM comprehension)")
         print("\nNote: README.md with dataset card already exists in telelogs_markdown/")
