@@ -6,22 +6,25 @@ import argparse
 from huggingface_hub import HfApi
 from pathlib import Path
 
-# Get HuggingFace token from environment variable
-HF_TOKEN = os.environ.get("HF_TOKEN")
-if not HF_TOKEN:
-    raise ValueError(
-        "HF_TOKEN environment variable not set. "
-        "Please set it with your HuggingFace token:\n"
-        "export HF_TOKEN=your_token_here"
-    )
-
-def upload_dataset(plain_format: bool = False, repo_id: str = "eaguaida/telelogs"):
+def upload_dataset(plain_format: bool = False, repo_id: str = "eaguaida/telelogs", splits: list = None):
     """Upload the processed TeleLogs dataset to HuggingFace (JSON + README only).
 
     Args:
         plain_format: If True, upload the plain pipe-delimited version (_plain files)
         repo_id: HuggingFace repository ID to upload to
+        splits: List of splits to upload (default: ['train', 'test'])
     """
+    if splits is None:
+        splits = ['train', 'test']
+
+    # Get HuggingFace token from environment variable
+    HF_TOKEN = os.environ.get("HF_TOKEN")
+    if not HF_TOKEN:
+        raise ValueError(
+            "HF_TOKEN environment variable not set. "
+            "Please set it with your HuggingFace token:\n"
+            "export HF_TOKEN=your_token_here"
+        )
 
     # Initialize HuggingFace API
     api = HfApi(token=HF_TOKEN)
@@ -35,15 +38,24 @@ def upload_dataset(plain_format: bool = False, repo_id: str = "eaguaida/telelogs
             "Please run extract_telelogs.py first to create the processed dataset."
         )
 
-    # Determine which file to upload based on format
+    # Determine which files to upload based on format
     suffix = "_plain" if plain_format else ""
-    json_file = dataset_folder / f"telelogs_test{suffix}.json"
     readme_file = dataset_folder / "README.md"
 
-    if not json_file.exists():
+    # Collect all JSON files to upload
+    json_files = []
+    for split in splits:
+        json_file = dataset_folder / f"telelogs_{split}{suffix}.json"
+        if json_file.exists():
+            json_files.append((f"telelogs_{split}{suffix}.json", str(json_file)))
+        else:
+            print(f"⚠ Warning: JSON file not found: {json_file}")
+            print(f"   Run: python extract_telelogs.py --splits {split}{' --no-markdown-kv' if plain_format else ''}")
+
+    if not json_files:
         raise FileNotFoundError(
-            f"JSON file not found: {json_file}\n"
-            f"Please run: python extract_telelogs.py{' --no-markdown-kv' if plain_format else ''}"
+            f"No JSON files found for splits: {splits}\n"
+            f"Please run: python extract_telelogs.py --splits {' '.join(splits)}{' --no-markdown-kv' if plain_format else ''}"
         )
 
     if not readme_file.exists():
@@ -58,16 +70,17 @@ def upload_dataset(plain_format: bool = False, repo_id: str = "eaguaida/telelogs
     print(f"Target repository: {repo_id}")
     print(f"Repository type: dataset")
     print(f"\nFiles to upload:")
-    print(f"  - {json_file.name} (data)")
-    print(f"  - README.md (dataset card with YAML metadata)")
+    for filename, _ in json_files:
+        print(f"  - {filename} (data)")
+    if readme_file.exists():
+        print(f"  - README.md (dataset card with YAML metadata)")
     print()
 
     try:
-        # Upload only JSON and README
-        files_to_upload = [
-            (json_file.name, str(json_file)),
-            ("README.md", str(readme_file))
-        ]
+        # Upload JSON files and README
+        files_to_upload = json_files.copy()
+        if readme_file.exists():
+            files_to_upload.append(("README.md", str(readme_file)))
 
         for path_in_repo, local_path in files_to_upload:
             if Path(local_path).exists():
@@ -91,6 +104,7 @@ def upload_dataset(plain_format: bool = False, repo_id: str = "eaguaida/telelogs
         print("  - Usage examples")
         if not plain_format:
             print("  - Markdown-KV formatted questions for improved LLM comprehension")
+        print(f"\nUploaded splits: {', '.join(splits)}")
 
     except Exception as e:
         print(f"❌ Error uploading dataset: {e}")
@@ -102,8 +116,14 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Upload Markdown-KV format to eaguaida/telelogs (default, recommended)
+  # Upload both train and test splits in Markdown-KV format (default, recommended)
   python upload_telelogs.py
+
+  # Upload only train split
+  python upload_telelogs.py --splits train
+
+  # Upload only test split
+  python upload_telelogs.py --splits test
 
   # Upload plain pipe-delimited format (not recommended)
   python upload_telelogs.py --plain
@@ -125,5 +145,12 @@ Examples:
         help='HuggingFace repository ID (default: eaguaida/telelogs)'
     )
 
+    parser.add_argument(
+        '--splits',
+        nargs='+',
+        default=['train', 'test'],
+        help='Dataset splits to upload (default: train test)'
+    )
+
     args = parser.parse_args()
-    upload_dataset(plain_format=args.plain, repo_id=args.repo_id)
+    upload_dataset(plain_format=args.plain, repo_id=args.repo_id, splits=args.splits)
