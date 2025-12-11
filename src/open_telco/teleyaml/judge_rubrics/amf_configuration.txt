@@ -1,0 +1,38 @@
+# AMF Configuration YAML Scoring Rubric
+
+Inputs
+* submission: Agent-generated YAML
+* ground_truth: Reference YAML
+* task_context: Original task prompt (contains target TAC, MCC, MNC)
+
+Criteria (score 1–5 each)
+
+Structure
+* S1: YAML parsability (valid=5, minor errors=3, unparseable=1)
+* S2: Root keys present (both=5, one=3, neither=1)
+* S3: Nested keys present (all 7=5, 4-6=3, ≤3=1)
+* S4: Type correctness (all correct=5, 1-2 errors=3, ≥3 errors=1)
+
+Root keys: amf, nrf
+Nested keys: amf.{sbi, ngap, guami, tai, plmn_support, security}, nrf.sbi
+
+Ground Truth Alignment
+* G1: AMF SBI match (address=127.0.0.6 AND port=7777 → 5, one=3, neither=1)
+* G2: NGAP port match (38412=5, off by ≤2=3, other=1)
+* G3: NRF SBI port match (7777=5, off by ≤2=3, other=1)
+* G4: Security orders match (both exact=5, one exact=3, neither=1)
+* G5: Task context alignment (TAC+MCC+MNC match=5, 1-2 match=3, none=1)
+
+Fixed values: amf.sbi.server[0].{address: 127.0.0.6, port: 7777}, amf.ngap.server[0].port: 38412, nrf.sbi.server[0].port: 7777
+Security values: integrity_order: [NIA2, NIA1, NIA0], ciphering_order: [NEA2, NEA1, NEA0]
+Task values: amf.tai[0].tac, plmn_id.{mcc, mnc} across guami[0], tai[0], plmn_support[0]
+
+Format
+* F1: MCC/MNC as quoted strings (all 6=5, 3-5=3, ≤2=1)
+* F2: Internal PLMN consistency + valid 192.168.x.x addresses (both=5, one=3, neither=1)
+
+PLMN locations: amf.guami[0].plmn_id, amf.tai[0].plmn_id, amf.plmn_support[0].plmn_id
+Address fields: amf.ngap.server[0].address, nrf.sbi.server[0].address
+
+Scoring
+* final_score = sum(all criteria) × (100 / 55)
