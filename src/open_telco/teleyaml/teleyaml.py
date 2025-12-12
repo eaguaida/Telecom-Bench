@@ -41,7 +41,7 @@ def teleyaml() -> Task:
     dataset = hf_dataset(
         "otellm/gsma-sample-data",
         name="teleyaml",
-        split="train",
+        split="test",
         sample_fields=FieldSpec(
             input="Question",
             target="Answer",
