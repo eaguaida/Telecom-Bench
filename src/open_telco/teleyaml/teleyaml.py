@@ -1,12 +1,12 @@
+from dotenv import load_dotenv
 from inspect_ai import Task, task
-from inspect_ai.dataset import FieldSpec
+from inspect_ai.dataset import FieldSpec, hf_dataset
 from inspect_ai.scorer import accuracy, stderr, model_graded_fact, model_graded_qa
 from inspect_ai.solver import system_message, generate
-from open_telco.scripts.utils import load_env, load_huggingface_dataset
 from textwrap import dedent
 from pathlib import Path
 
-load_env()
+load_dotenv()
 
 
 AGENT_SYSTEM_PROMPT = dedent(""" 
@@ -38,9 +38,10 @@ def get_rubric(category: str, rubrics_dir: Path) -> str:
 
 @task
 def teleyaml() -> Task:
-    dataset = load_huggingface_dataset(
+    dataset = hf_dataset(
         "otellm/gsma-sample-data",
         name="teleyaml",
+        split="train",
         sample_fields=FieldSpec(
             input="Question",
             target="Answer",
